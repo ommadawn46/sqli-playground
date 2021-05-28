@@ -15,7 +15,7 @@
 - [INTO OUTFILE - Write a PHP file to RCE](#into-outfile-write-a-php-file-to-rce)
   - [前提条件](#前提条件-1)
   - [手順](#手順-1)
-    - [PHPファイルを `INTO OUTFILE` で書き込む](#step-1-phpファイルを-into-outfile-で書き込む)
+    - [Step 1: PHPファイルを `INTO OUTFILE` で書き込む](#step-1-phpファイルを-into-outfile-で書き込む)
     - [Step 2: PHP経由でOSコマンドを実行する](#step-2-php経由でosコマンドを実行する)
   - [対策](#対策-1)
 - [UDF - Write a plugin file to RCE](#udf-write-a-plugin-file-to-rce)
